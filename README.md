@@ -4,6 +4,8 @@
 
 ## 在线使用
 
+🔗 https://miny716.github.io/analysisVideoFormat/
+
 🔗 https://6a1e8c867dec61007bf28c13--leafy-mooncake-7fbfda.netlify.app
 
 ## 功能
