@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <title>视频编码检测工具</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC',
+          'Microsoft YaHei', sans-serif;
+        max-width: 900px;
+        margin: 24px auto;
+        padding: 0 16px;
+        color: #222;
+        background: #fafafa;
+      }
+      h1 {
+        font-size: 22px;
+        margin-bottom: 16px;
+      }
+      .card {
+        background: #fff;
+        border: 1px solid #eee;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      }
+      .tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .tab {
+        flex: 0 0 auto;
+        padding: 8px 16px;
+        border: 1px solid #ddd;
+        background: #fff;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        color: #444;
+        transition: all 0.2s;
+      }
+      .tab.active {
+        border-color: #2f6fed;
+        color: #2f6fed;
+        background: #eef3ff;
+      }
+      .panel {
+        display: none;
+      }
+      .panel.active {
+        display: block;
+      }
+      input[type='text'] {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 14px;
+        outline: none;
+      }
+      input[type='text']:focus {
+        border-color: #2f6fed;
+      }
+      input[type='file'] {
+        padding: 8px 0;
+        font-size: 14px;
+      }
+      .btn {
+        padding: 10px 20px;
+        border: none;
+        background: #2f6fed;
+        color: #fff;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-top: 12px;
+        transition: background 0.2s;
+      }
+      .btn:hover:not(:disabled) {
+        background: #1e58d6;
+      }
+      .btn:disabled {
+        background: #b6c6e8;
+        cursor: not-allowed;
+      }
+      .meta {
+        font-size: 12px;
+        color: #888;
+        margin-top: 6px;
+      }
+      .result-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 8px;
+        font-size: 14px;
+      }
+      .result-table th,
+      .result-table td {
+        text-align: left;
+        padding: 8px 10px;
+        border-bottom: 1px solid #f0f0f0;
+        vertical-align: top;
+      }
+      .result-table th {
+        width: 130px;
+        color: #666;
+        font-weight: 500;
+        background: #fafbfc;
+      }
+      .status-blue {
+        color: #2f6fed;
+      }
+      .status-red {
+        color: #d93026;
+      }
+      .status-green {
+        color: #1aa260;
+      }
+      pre.raw {
+        background: #f6f8fa;
+        padding: 12px;
+        border-radius: 6px;
+        overflow: auto;
+        max-height: 320px;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      details {
+        margin-top: 12px;
+      }
+      summary {
+        cursor: pointer;
+        color: #555;
+        font-size: 13px;
+      }
+      .progress-bar {
+        margin-top: 8px;
+        height: 6px;
+        background: #eee;
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .progress-bar > span {
+        display: block;
+        height: 100%;
+        background: #2f6fed;
+        width: 0;
+        transition: width 0.2s;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>视频编码检测工具</h1>
+
+    <div class="card">
+      <div class="tabs">
+        <button class="tab active" data-target="panel-url">输入 URL</button>
+        <button class="tab" data-target="panel-file">上传本地文件</button>
+      </div>
+
+      <div id="panel-url" class="panel active">
+        <input
+          type="text"
+          id="videoUrl"
+          placeholder="请输入视频地址，如 https://xxx.com/video.mp4"
+          value="https://order-jd.imdada.cn/test/62/a0408b85719a482595955cd5a16f4cbc.mp4"
+        />
+        <div class="meta">
+          注意：URL 需要支持 CORS（响应头包含
+          Access-Control-Allow-Origin），否则浏览器无法读取数据。
+        </div>
+        <button class="btn" id="analyzeUrlBtn">分析 URL 视频</button>
+      </div>
+
+      <div id="panel-file" class="panel">
+        <input type="file" id="videoFile" accept="video/*" />
+        <div class="meta">
+          支持选择本地任意视频文件，分析在浏览器内本地完成，不会上传服务器。
+        </div>
+        <button class="btn" id="analyzeFileBtn">分析本地视频</button>
+      </div>
+
+      <div class="progress-bar" id="progressBar" style="display: none">
+        <span></span>
+      </div>
+    </div>
+
+    <div class="card" id="resultCard" style="display: none">
+      <div id="result"></div>
+    </div>
+
+    <script type="module">
+      // ===== Tab 切换 =====
+      const tabs = document.querySelectorAll('.tab')
+      const panels = document.querySelectorAll('.panel')
+      tabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+          tabs.forEach((t) => t.classList.remove('active'))
+          panels.forEach((p) => p.classList.remove('active'))
+          tab.classList.add('active')
+          document.getElementById(tab.dataset.target).classList.add('active')
+        })
+      })
+
+      // ===== DOM =====
+      const resultDiv = document.getElementById('result')
+      const resultCard = document.getElementById('resultCard')
+      const progressBar = document.getElementById('progressBar')
+      const progressInner = progressBar.querySelector('span')
+      const analyzeUrlBtn = document.getElementById('analyzeUrlBtn')
+      const analyzeFileBtn = document.getElementById('analyzeFileBtn')
+
+      // ===== MediaInfo 单例加载 =====
+      // 使用 esm.sh 转换后的 ESM 入口，避免 UMD 在 import() 下的导出兼容问题
+      // locateFile 用于告诉 emscripten 去哪里加载 wasm 文件
+      const MEDIAINFO_VERSION = '0.3.4'
+      const WASM_URL = `https://cdn.jsdelivr.net/npm/mediainfo.js@${MEDIAINFO_VERSION}/dist/MediaInfoModule.wasm`
+
+      let mediaInfoPromise = null
+      const getMediaInfo = () => {
+        if (!mediaInfoPromise) {
+          mediaInfoPromise = (async () => {
+            const mod = await import(
+              `https://esm.sh/mediainfo.js@${MEDIAINFO_VERSION}?bundle`
+            )
+            // 兼容多种导出形态：default 函数 / 嵌套 default / 命名导出 / 模块本身
+            const MediaInfoFactory =
+              (typeof mod.default === 'function' && mod.default) ||
+              (typeof mod.default?.default === 'function' &&
+                mod.default.default) ||
+              (typeof mod.MediaInfo === 'function' && mod.MediaInfo) ||
+              (typeof mod === 'function' && mod)
+
+            if (typeof MediaInfoFactory !== 'function') {
+              console.error('MediaInfo module shape:', mod)
+              throw new Error('MediaInfo 加载失败：未找到工厂函数')
+            }
+
+            return MediaInfoFactory({
+              format: 'object',
+              locateFile: () => WASM_URL,
+            })
+          })()
+        }
+        return mediaInfoPromise
+      }
+
+      // ===== 工具方法 =====
+      const setLoading = (loading, percent = 0) => {
+        analyzeUrlBtn.disabled = loading
+        analyzeFileBtn.disabled = loading
+        if (loading) {
+          progressBar.style.display = 'block'
+          progressInner.style.width = percent + '%'
+        } else {
+          progressBar.style.display = 'none'
+          progressInner.style.width = '0%'
+        }
+      }
+
+      const showStatus = (msg, type = 'blue') => {
+        resultCard.style.display = 'block'
+        resultDiv.innerHTML = `<p class="status-${type}">${msg}</p>`
+      }
+
+      const formatBytes = (bytes) => {
+        if (!bytes && bytes !== 0) return 'N/A'
+        const units = ['B', 'KB', 'MB', 'GB']
+        let i = 0
+        let n = Number(bytes)
+        while (n >= 1024 && i < units.length - 1) {
+          n /= 1024
+          i++
+        }
+        return n.toFixed(2) + ' ' + units[i]
+      }
+
+      const formatDuration = (seconds) => {
+        if (!seconds && seconds !== 0) return 'N/A'
+        const s = Math.round(Number(seconds))
+        const h = Math.floor(s / 3600)
+        const m = Math.floor((s % 3600) / 60)
+        const sec = s % 60
+        const pad = (n) => String(n).padStart(2, '0')
+        return (h ? pad(h) + ':' : '') + pad(m) + ':' + pad(sec)
+      }
+
+      // ===== 渲染结果 =====
+      const renderResult = (result, sourceLabel) => {
+        const tracks = result.media?.track || []
+        const general = tracks.find((t) => t['@type'] === 'General')
+        const video = tracks.find((t) => t['@type'] === 'Video')
+        const audios = tracks.filter((t) => t['@type'] === 'Audio')
+
+        if (!video) {
+          resultDiv.innerHTML = `<p class="status-red">未找到视频轨道信息</p>`
+          return
+        }
+
+        const rows = [
+          ['来源', sourceLabel],
+          ['容器格式', general?.Format || general?.FileExtension || 'N/A'],
+          ['文件大小', formatBytes(general?.FileSize)],
+          ['总时长', formatDuration(video.Duration || general?.Duration)],
+          ['视频编码(需AVC)', video.Format || video.CodecID || '未知'],
+          ['编码 Profile', video.Format_Profile || 'N/A'],
+          ['编码 Level(需<5)', video.Format_Level || 'N/A'],
+          ['分辨率', (video.Width || '0') + ' × ' + (video.Height || '0')],
+          ['帧率', video.FrameRate ? video.FrameRate + ' fps' : 'N/A'],
+          [
+            '视频码率',
+            video.BitRate ? Math.round(video.BitRate / 1000) + ' kbps' : 'N/A',
+          ],
+          ['色彩空间', video.ColorSpace || 'N/A'],
+          ['位深', video.BitDepth ? video.BitDepth + ' bit' : 'N/A'],
+          [
+            '音频轨道数',
+            audios.length +
+              (audios.length
+                ? ` (${audios
+                    .map((a) => a.Format || a.CodecID || '?')
+                    .join(', ')})`
+                : ''),
+          ],
+        ]
+
+        const html = `
+          <h3 style="margin:0 0 12px;">分析结果</h3>
+          <table class="result-table">
+            ${rows
+              .map(([k, v]) => `<tr><th>${k}</th><td>${v ?? 'N/A'}</td></tr>`)
+              .join('')}
+          </table>
+          <details>
+            <summary>查看完整原始数据</summary>
+            <pre class="raw">${JSON.stringify(result, null, 2)}</pre>
+          </details>
+        `
+        resultCard.style.display = 'block'
+        resultDiv.innerHTML = html
+      }
+
+      // ===== 分析逻辑 =====
+      const analyzeBuffer = async (buffer, sourceLabel) => {
+        const mi = await getMediaInfo()
+        const result = await mi.analyzeData(
+          () => buffer.byteLength,
+          (chunkSize, offset) =>
+            new Uint8Array(buffer.slice(offset, offset + chunkSize))
+        )
+        renderResult(result, sourceLabel)
+      }
+
+      // ===== 入口：URL =====
+      analyzeUrlBtn.addEventListener('click', async () => {
+        const url = document.getElementById('videoUrl').value.trim()
+        if (!url) {
+          showStatus('请输入视频 URL', 'red')
+          return
+        }
+
+        try {
+          setLoading(true, 5)
+          showStatus('正在加载视频数据，请稍候...')
+
+          // 优化：通过 readChunk 回调按需 fetch Range，无需下载整个文件
+          const mi = await getMediaInfo()
+
+          // 先 HEAD 拿文件大小（若服务端支持）
+          let totalSize = 0
+          try {
+            const headRes = await fetch(url, { method: 'HEAD' })
+            totalSize = Number(headRes.headers.get('content-length')) || 0
+          } catch (_) {}
+
+          let result
+          if (totalSize > 0) {
+            // 按 Range 读取
+            result = await mi.analyzeData(
+              () => totalSize,
+              async (chunkSize, offset) => {
+                setLoading(true, Math.min(95, (offset / totalSize) * 95))
+                const end = Math.min(offset + chunkSize - 1, totalSize - 1)
+                const res = await fetch(url, {
+                  headers: { Range: `bytes=${offset}-${end}` },
+                })
+                if (!res.ok && res.status !== 206) {
+                  throw new Error(`视频加载失败 (HTTP ${res.status})`)
+                }
+                const buf = await res.arrayBuffer()
+                return new Uint8Array(buf)
+              }
+            )
+          } else {
+            // 服务端无 content-length 或 HEAD 失败，回退为整体下载
+            const response = await fetch(url)
+            if (!response.ok) {
+              throw new Error(`视频加载失败 (HTTP ${response.status})`)
+            }
+            const buffer = await response.arrayBuffer()
+            setLoading(true, 95)
+            result = await mi.analyzeData(
+              () => buffer.byteLength,
+              (chunkSize, offset) =>
+                new Uint8Array(buffer.slice(offset, offset + chunkSize))
+            )
+          }
+
+          setLoading(true, 98)
+          renderResult(result, url)
+        } catch (error) {
+          console.error('分析失败:', error)
+          resultCard.style.display = 'block'
+          resultDiv.innerHTML = `
+            <p class="status-red"><strong>分析失败：</strong>${error.message}</p>
+            <p>常见原因：</p>
+            <ul>
+              <li>视频 URL 不支持跨域（CORS）</li>
+              <li>网络连接问题</li>
+              <li>视频格式不受支持</li>
+            </ul>
+          `
+        } finally {
+          setLoading(false)
+        }
+      })
+
+      // ===== 入口：本地文件 =====
+      analyzeFileBtn.addEventListener('click', async () => {
+        const fileInput = document.getElementById('videoFile')
+        const file = fileInput.files?.[0]
+        if (!file) {
+          showStatus('请选择视频文件', 'red')
+          return
+        }
+
+        try {
+          setLoading(true, 10)
+          showStatus(`正在读取本地文件 “${file.name}”...`)
+
+          // 使用流式读取以支持进度
+          const reader = file.stream().getReader()
+          const total = file.size
+          const chunks = []
+          let received = 0
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            chunks.push(value)
+            received += value.length
+            setLoading(true, Math.min(90, (received / total) * 90))
+          }
+          const merged = new Uint8Array(received)
+          let offset = 0
+          for (const c of chunks) {
+            merged.set(c, offset)
+            offset += c.length
+          }
+
+          setLoading(true, 95)
+          showStatus('正在分析视频，请稍候...')
+          await analyzeBuffer(
+            merged.buffer,
+            `${file.name} (${formatBytes(file.size)})`
+          )
+        } catch (error) {
+          console.error('分析失败:', error)
+          resultCard.style.display = 'block'
+          resultDiv.innerHTML = `
+            <p class="status-red"><strong>分析失败：</strong>${error.message}</p>
+          `
+        } finally {
+          setLoading(false)
+        }
+      })
+    </script>
+  </body>
+</html>
