@@ -307,9 +307,9 @@
           ['容器格式', general?.Format || general?.FileExtension || 'N/A'],
           ['文件大小', formatBytes(general?.FileSize)],
           ['总时长', formatDuration(video.Duration || general?.Duration)],
-          ['视频编码(需AVC)', video.Format || video.CodecID || '未知'],
+          ['视频编码', video.Format || video.CodecID || '未知'],
           ['编码 Profile', video.Format_Profile || 'N/A'],
-          ['编码 Level(需<5)', video.Format_Level || 'N/A'],
+          ['编码 Level', video.Format_Level || 'N/A'],
           ['分辨率', (video.Width || '0') + ' × ' + (video.Height || '0')],
           ['帧率', video.FrameRate ? video.FrameRate + ' fps' : 'N/A'],
           [
